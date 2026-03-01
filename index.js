@@ -1,94 +1,95 @@
-const Canvas = require('./lib/canvas')
-const Image = require('./lib/image')
-const CanvasRenderingContext2D = require('./lib/context2d')
-const CanvasPattern = require('./lib/pattern')
-const packageJson = require('./package.json')
-const bindings = require('./lib/bindings')
-const fs = require('fs')
-const PNGStream = require('./lib/pngstream')
-const PDFStream = require('./lib/pdfstream')
-const JPEGStream = require('./lib/jpegstream')
-const { DOMPoint, DOMMatrix } = require('./lib/DOMMatrix')
+/*!
+ * ee-first
+ * Copyright(c) 2014 Jonathan Ong
+ * MIT Licensed
+ */
 
-bindings.setDOMMatrix(DOMMatrix)
+'use strict'
 
-function createCanvas (width, height, type) {
-  return new Canvas(width, height, type)
+/**
+ * Module exports.
+ * @public
+ */
+
+module.exports = first
+
+/**
+ * Get the first event in a set of event emitters and event pairs.
+ *
+ * @param {array} stuff
+ * @param {function} done
+ * @public
+ */
+
+function first(stuff, done) {
+  if (!Array.isArray(stuff))
+    throw new TypeError('arg must be an array of [ee, events...] arrays')
+
+  var cleanups = []
+
+  for (var i = 0; i < stuff.length; i++) {
+    var arr = stuff[i]
+
+    if (!Array.isArray(arr) || arr.length < 2)
+      throw new TypeError('each array member must be [ee, events...]')
+
+    var ee = arr[0]
+
+    for (var j = 1; j < arr.length; j++) {
+      var event = arr[j]
+      var fn = listener(event, callback)
+
+      // listen to the event
+      ee.on(event, fn)
+      // push this listener to the list of cleanups
+      cleanups.push({
+        ee: ee,
+        event: event,
+        fn: fn,
+      })
+    }
+  }
+
+  function callback() {
+    cleanup()
+    done.apply(null, arguments)
+  }
+
+  function cleanup() {
+    var x
+    for (var i = 0; i < cleanups.length; i++) {
+      x = cleanups[i]
+      x.ee.removeListener(x.event, x.fn)
+    }
+  }
+
+  function thunk(fn) {
+    done = fn
+  }
+
+  thunk.cancel = cleanup
+
+  return thunk
 }
 
-function createImageData (array, width, height) {
-  return new bindings.ImageData(array, width, height)
-}
+/**
+ * Create the event listener.
+ * @private
+ */
 
-function loadImage (src) {
-  return new Promise((resolve, reject) => {
-    const image = new Image()
+function listener(event, done) {
+  return function onevent(arg1) {
+    var args = new Array(arguments.length)
+    var ee = this
+    var err = event === 'error'
+      ? arg1
+      : null
 
-    function cleanup () {
-      image.onload = null
-      image.onerror = null
+    // copy args to prevent arguments escaping scope
+    for (var i = 0; i < args.length; i++) {
+      args[i] = arguments[i]
     }
 
-    image.onload = () => { cleanup(); resolve(image) }
-    image.onerror = (err) => { cleanup(); reject(err) }
-
-    image.src = src
-  })
+    done(err, ee, event, args)
+  }
 }
-
-/**
- * Resolve paths for registerFont. Must be called *before* creating a Canvas
- * instance.
- * @param src {string} Path to font file.
- * @param fontFace {{family: string, weight?: string, style?: string}} Object
- * specifying font information. `weight` and `style` default to `"normal"`.
- */
-function registerFont (src, fontFace) {
-  // TODO this doesn't need to be on Canvas; it should just be a static method
-  // of `bindings`.
-  return Canvas._registerFont(fs.realpathSync(src), fontFace)
-}
-
-/**
- * Unload all fonts from pango to free up memory
- */
-function deregisterAllFonts () {
-  return Canvas._deregisterAllFonts()
-}
-
-exports.Canvas = Canvas
-exports.Context2d = CanvasRenderingContext2D // Legacy/compat export
-exports.CanvasRenderingContext2D = CanvasRenderingContext2D
-exports.CanvasGradient = bindings.CanvasGradient
-exports.CanvasPattern = CanvasPattern
-exports.Image = Image
-exports.ImageData = bindings.ImageData
-exports.PNGStream = PNGStream
-exports.PDFStream = PDFStream
-exports.JPEGStream = JPEGStream
-exports.DOMMatrix = DOMMatrix
-exports.DOMPoint = DOMPoint
-
-exports.registerFont = registerFont
-exports.deregisterAllFonts = deregisterAllFonts
-
-exports.createCanvas = createCanvas
-exports.createImageData = createImageData
-exports.loadImage = loadImage
-
-exports.backends = bindings.Backends
-
-/** Library version. */
-exports.version = packageJson.version
-/** Cairo version. */
-exports.cairoVersion = bindings.cairoVersion
-/** jpeglib version. */
-exports.jpegVersion = bindings.jpegVersion
-/** gif_lib version. */
-exports.gifVersion = bindings.gifVersion ? bindings.gifVersion.replace(/[^.\d]/g, '') : undefined
-/** freetype version. */
-exports.freetypeVersion = bindings.freetypeVersion
-/** rsvg version. */
-exports.rsvgVersion = bindings.rsvgVersion
-/** pango version. */
-exports.pangoVersion = bindings.pangoVersion
