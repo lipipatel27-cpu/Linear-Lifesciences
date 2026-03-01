@@ -1,34 +1,28 @@
 {
-  "name": "argparse",
-  "description": "Very powerful CLI arguments parser. Native port of argparse - python's options parsing library",
-  "version": "1.0.10",
+  "name": "bindings",
+  "description": "Helper module for loading your native module's .node file",
   "keywords": [
-    "cli",
-    "parser",
-    "argparse",
-    "option",
-    "args"
+    "native",
+    "addon",
+    "bindings",
+    "gyp",
+    "waf",
+    "c",
+    "c++"
   ],
-  "contributors": [
-    "Eugene Shkuropat",
-    "Paul Jacobson"
-  ],
-  "files": [
-    "index.js",
-    "lib/"
-  ],
+  "version": "1.5.0",
+  "author": "Nathan Rajlich <nathan@tootallnate.net> (http://tootallnate.net)",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/TooTallNate/node-bindings.git"
+  },
+  "main": "./bindings.js",
+  "bugs": {
+    "url": "https://github.com/TooTallNate/node-bindings/issues"
+  },
+  "homepage": "https://github.com/TooTallNate/node-bindings",
   "license": "MIT",
-  "repository": "nodeca/argparse",
-  "scripts": {
-    "test": "make test"
-  },
   "dependencies": {
-    "sprintf-js": "~1.0.2"
-  },
-  "devDependencies": {
-    "eslint": "^2.13.1",
-    "istanbul": "^0.4.5",
-    "mocha": "^3.1.0",
-    "ndoc": "^5.0.1"
+    "file-uri-to-path": "1.0.0"
   }
 }
