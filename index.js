@@ -1,95 +1,51 @@
-/*!
- * ee-first
- * Copyright(c) 2014 Jonathan Ong
- * MIT Licensed
+/**
+ * Module dependencies.
  */
 
-'use strict'
+var crypto = require('crypto');
 
 /**
- * Module exports.
- * @public
- */
-
-module.exports = first
-
-/**
- * Get the first event in a set of event emitters and event pairs.
+ * Sign the given `val` with `secret`.
  *
- * @param {array} stuff
- * @param {function} done
- * @public
+ * @param {String} val
+ * @param {String|NodeJS.ArrayBufferView|crypto.KeyObject} secret
+ * @return {String}
+ * @api private
  */
 
-function first(stuff, done) {
-  if (!Array.isArray(stuff))
-    throw new TypeError('arg must be an array of [ee, events...] arrays')
-
-  var cleanups = []
-
-  for (var i = 0; i < stuff.length; i++) {
-    var arr = stuff[i]
-
-    if (!Array.isArray(arr) || arr.length < 2)
-      throw new TypeError('each array member must be [ee, events...]')
-
-    var ee = arr[0]
-
-    for (var j = 1; j < arr.length; j++) {
-      var event = arr[j]
-      var fn = listener(event, callback)
-
-      // listen to the event
-      ee.on(event, fn)
-      // push this listener to the list of cleanups
-      cleanups.push({
-        ee: ee,
-        event: event,
-        fn: fn,
-      })
-    }
-  }
-
-  function callback() {
-    cleanup()
-    done.apply(null, arguments)
-  }
-
-  function cleanup() {
-    var x
-    for (var i = 0; i < cleanups.length; i++) {
-      x = cleanups[i]
-      x.ee.removeListener(x.event, x.fn)
-    }
-  }
-
-  function thunk(fn) {
-    done = fn
-  }
-
-  thunk.cancel = cleanup
-
-  return thunk
-}
+exports.sign = function(val, secret){
+  if ('string' !== typeof val) throw new TypeError("Cookie value must be provided as a string.");
+  if (null == secret) throw new TypeError("Secret key must be provided.");
+  return val + '.' + crypto
+    .createHmac('sha256', secret)
+    .update(val)
+    .digest('base64')
+    .replace(/\=+$/, '');
+};
 
 /**
- * Create the event listener.
- * @private
+ * Unsign and decode the given `val` with `secret`,
+ * returning `false` if the signature is invalid.
+ *
+ * @param {String} val
+ * @param {String|NodeJS.ArrayBufferView|crypto.KeyObject} secret
+ * @return {String|Boolean}
+ * @api private
  */
 
-function listener(event, done) {
-  return function onevent(arg1) {
-    var args = new Array(arguments.length)
-    var ee = this
-    var err = event === 'error'
-      ? arg1
-      : null
+exports.unsign = function(val, secret){
+  if ('string' !== typeof val) throw new TypeError("Signed cookie string must be provided.");
+  if (null == secret) throw new TypeError("Secret key must be provided.");
+  var str = val.slice(0, val.lastIndexOf('.'))
+    , mac = exports.sign(str, secret);
+  
+  return sha1(mac) == sha1(val) ? str : false;
+};
 
-    // copy args to prevent arguments escaping scope
-    for (var i = 0; i < args.length; i++) {
-      args[i] = arguments[i]
-    }
+/**
+ * Private
+ */
 
-    done(err, ee, event, args)
-  }
+function sha1(str){
+  return crypto.createHash('sha1').update(str).digest('hex');
 }

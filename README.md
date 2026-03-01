@@ -1,380 +1,1061 @@
-Embedded JavaScript templates<br/>
-[![Known Vulnerabilities](https://snyk.io/test/npm/ejs/badge.svg?style=flat)](https://snyk.io/test/npm/ejs)
-=============================
+# express-session
 
-## Security
-
-Security professionals, before reporting any security issues, please reference the
-<a href="https://github.com/mde/ejs/blob/main/SECURITY.md">SECURITY.md</a>
-in this project, in particular, the following: "EJS is effectively a JavaScript runtime.
-Its entire job is to execute JavaScript. If you run the EJS render method without
-checking the inputs yourself, you are responsible for the results."
-
-In short, DO NOT submit 'vulnerabilities' that include this snippet of code:
-
-```javascript
-app.get('/', (req, res) => {
-  res.render('index', req.query);
-});
-```
+[![NPM Version][npm-version-image]][npm-url]
+[![NPM Downloads][npm-downloads-image]][node-url]
+[![Build Status][ci-image]][ci-url]
+[![Test Coverage][coveralls-image]][coveralls-url]
 
 ## Installation
 
-```bash
-$ npm install ejs
+This is a [Node.js](https://nodejs.org/en/) module available through the
+[npm registry](https://www.npmjs.com/). Installation is done using the
+[`npm install` command](https://docs.npmjs.com/getting-started/installing-npm-packages-locally):
+
+```sh
+$ npm install express-session
 ```
 
-### Import or require
+## API
 
-Supports both CommonJS and ES Modules.
-
-```javascript
-import ejs from 'ejs';
-// Or
-const ejs = require('ejs');
+```js
+var session = require('express-session')
 ```
 
-### Compatibility
+### session(options)
 
-Server: CommonJS approach (`require`) supports Node versions at least
-back to v0.12, likely older versions too. ES Modules approach (`import`)
-requires a Node version that supports ESM.
+Create a session middleware with the given `options`.
 
-CLI: Requires Node v8 or newer.
+**Note** Session data is _not_ saved in the cookie itself, just the session ID.
+Session data is stored server-side.
 
-Browser: EJS supports all modern browsers, but is very likely to work even
-in very, very old browsers. Your mileage may vary.
+**Note** Since version 1.5.0, the [`cookie-parser` middleware](https://www.npmjs.com/package/cookie-parser)
+no longer needs to be used for this module to work. This module now directly reads
+and writes cookies on `req`/`res`. Using `cookie-parser` may result in issues
+if the `secret` is not the same between this module and `cookie-parser`.
 
-## Features
+**Warning** The default server-side session storage, `MemoryStore`, is _purposely_
+not designed for a production environment. It will leak memory under most
+conditions, does not scale past a single process, and is meant for debugging and
+developing.
 
-  * Control flow with `<% %>`
-  * Escaped output with `<%= %>` (escape function configurable)
-  * Unescaped raw output with `<%- %>`
-  * Newline-trim mode ('newline slurping') with `-%>` ending tag
-  * Whitespace-trim mode (slurp all whitespace) for control flow with `<%_ _%>`
-  * Custom delimiters (e.g. `[? ?]` instead of `<% %>`)
-  * Includes
-  * Client-side support
-  * Static caching of intermediate JavaScript
-  * Static caching of templates
-  * Complies with the [Express](http://expressjs.com) view system
+For a list of stores, see [compatible session stores](#compatible-session-stores).
 
-## Example
+#### Options
 
-```ejs
-<% if (user) { %>
-  <h2><%= user.name %></h2>
-<% } %>
+`express-session` accepts these properties in the options object.
+
+##### cookie
+
+Settings object for the session ID cookie. The default value is
+`{ path: '/', httpOnly: true, secure: false, maxAge: null }`.
+
+In addition to providing a static object, you can also pass a callback function to dynamically generate the cookie options for each request. The callback receives the `req` object as its argument and should return an object containing the cookie settings.
+
+```js
+var app = express()
+app.use(session({
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true,
+  cookie: function(req) {
+    var match = req.url.match(/^\/([^/]+)/);
+    return {
+      path: match ? '/' + match[1] : '/',
+      httpOnly: true,
+      secure: req.secure || false,
+      maxAge: 60000
+    }
+  }
+}))
 ```
 
-Try EJS online at: https://ionicabizau.github.io/ejs-playground/.
+The following are options that can be set in this object.
 
-## Basic usage
+##### cookie.domain
 
-```javascript
-const template = ejs.compile(str, options);
-template(data);
-// => Rendered HTML string
+Specifies the value for the `Domain` `Set-Cookie` attribute. By default, no domain
+is set, and most clients will consider the cookie to apply to only the current
+domain.
 
-ejs.render(str, data, options);
-// => Rendered HTML string
+##### cookie.expires
 
-ejs.renderFile(filename, data, options, function(err, str){
-    // str => Rendered HTML string
-});
+Specifies the `Date` object to be the value for the `Expires` `Set-Cookie` attribute.
+By default, no expiration is set, and most clients will consider this a
+"non-persistent cookie" and will delete it on a condition like exiting a web browser
+application.
+
+**Note** If both `expires` and `maxAge` are set in the options, then the last one
+defined in the object is what is used.
+
+**Note** The `expires` option should not be set directly; instead only use the `maxAge`
+option.
+
+##### cookie.httpOnly
+
+Specifies the `boolean` value for the `HttpOnly` `Set-Cookie` attribute. When truthy,
+the `HttpOnly` attribute is set, otherwise it is not. By default, the `HttpOnly`
+attribute is set.
+
+**Note** be careful when setting this to `true`, as compliant clients will not allow
+client-side JavaScript to see the cookie in `document.cookie`.
+
+##### cookie.maxAge
+
+Specifies the `number` (in milliseconds) to use when calculating the `Expires`
+`Set-Cookie` attribute. This is done by taking the current server time and adding
+`maxAge` milliseconds to the value to calculate an `Expires` datetime. By default,
+no maximum age is set.
+
+**Note** If both `expires` and `maxAge` are set in the options, then the last one
+defined in the object is what is used.
+
+##### cookie.partitioned
+
+Specifies the `boolean` value for the [`Partitioned` `Set-Cookie`](rfc-cutler-httpbis-partitioned-cookies)
+attribute. When truthy, the `Partitioned` attribute is set, otherwise it is not.
+By default, the `Partitioned` attribute is not set.
+
+**Note** This is an attribute that has not yet been fully standardized, and may
+change in the future. This also means many clients may ignore this attribute until
+they understand it.
+
+More information about can be found in [the proposal](https://github.com/privacycg/CHIPS).
+
+##### cookie.path
+
+Specifies the value for the `Path` `Set-Cookie`. By default, this is set to `'/'`, which
+is the root path of the domain.
+
+##### cookie.priority
+
+Specifies the `string` to be the value for the [`Priority` `Set-Cookie` attribute][rfc-west-cookie-priority-00-4.1].
+
+  - `'low'` will set the `Priority` attribute to `Low`.
+  - `'medium'` will set the `Priority` attribute to `Medium`, the default priority when not set.
+  - `'high'` will set the `Priority` attribute to `High`.
+
+More information about the different priority levels can be found in
+[the specification][rfc-west-cookie-priority-00-4.1].
+
+**Note** This is an attribute that has not yet been fully standardized, and may change in the future.
+This also means many clients may ignore this attribute until they understand it.
+
+##### cookie.sameSite
+
+Specifies the `boolean` or `string` to be the value for the `SameSite` `Set-Cookie` attribute.
+By default, this is `false`.
+
+  - `true` will set the `SameSite` attribute to `Strict` for strict same site enforcement.
+  - `false` will not set the `SameSite` attribute.
+  - `'lax'` will set the `SameSite` attribute to `Lax` for lax same site enforcement.
+  - `'none'` will set the `SameSite` attribute to `None` for an explicit cross-site cookie.
+  - `'strict'` will set the `SameSite` attribute to `Strict` for strict same site enforcement.
+  - `'auto'` will set the `SameSite` attribute to `None` for secure connections and `Lax` for non-secure connections.
+
+More information about the different enforcement levels can be found in
+[the specification][rfc-6265bis-03-4.1.2.7].
+
+**Note** This is an attribute that has not yet been fully standardized, and may change in
+the future. This also means many clients may ignore this attribute until they understand it.
+
+**Note** There is a [draft spec](https://tools.ietf.org/html/draft-west-cookie-incrementalism-01)
+that requires that the `Secure` attribute be set to `true` when the `SameSite` attribute has been
+set to `'none'`. Some web browsers or other clients may be adopting this specification.
+
+The `cookie.sameSite` option can also be set to the special value `'auto'` to have
+this setting automatically match the determined security of the connection. When the connection
+is secure (HTTPS), the `SameSite` attribute will be set to `None` to enable cross-site usage.
+When the connection is not secure (HTTP), the `SameSite` attribute will be set to `Lax` for
+better security while maintaining functionality. This is useful when the Express `"trust proxy"`
+setting is properly setup to simplify development vs production configuration, particularly
+for SAML authentication scenarios.
+
+##### cookie.secure
+
+Specifies the `boolean` value for the `Secure` `Set-Cookie` attribute. When truthy,
+the `Secure` attribute is set, otherwise it is not. By default, the `Secure`
+attribute is not set.
+
+**Note** be careful when setting this to `true`, as compliant clients will not send
+the cookie back to the server in the future if the browser does not have an HTTPS
+connection.
+
+Please note that `secure: true` is a **recommended** option. However, it requires
+an https-enabled website, i.e., HTTPS is necessary for secure cookies. If `secure`
+is set, and you access your site over HTTP, the cookie will not be set. If you
+have your node.js behind a proxy and are using `secure: true`, you need to set
+"trust proxy" in express:
+
+```js
+var app = express()
+app.set('trust proxy', 1) // trust first proxy
+app.use(session({
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: true }
+}))
 ```
 
-It is also possible to use `ejs.render(dataAndOptions);` where you pass
-everything in a single object. In that case, you'll end up with local variables
-for all the passed options. However, be aware that your code could break if we
-add an option with the same name as one of your data object's properties.
-Therefore, we do not recommend using this shortcut.
+For using secure cookies in production, but allowing for testing in development,
+the following is an example of enabling this setup based on `NODE_ENV` in express:
 
-### Important
-You should never give end-users unfettered access to the EJS render method, If you do so you are using EJS in an inherently un-secure way.
+```js
+var app = express()
+var sess = {
+  secret: 'keyboard cat',
+  cookie: {}
+}
 
-### Options
+if (app.get('env') === 'production') {
+  app.set('trust proxy', 1) // trust first proxy
+  sess.cookie.secure = true // serve secure cookies
+}
 
-  - `cache`                 Compiled functions are cached, requires `filename`
-  - `filename`              The name of the file being rendered. Not required if you
-    are using `renderFile()`. Used by `cache` to key caches, and for includes.
-  - `root`                  Set template root(s) for includes with an absolute path (e.g, /file.ejs).
-    Can be array to try to resolve include from multiple directories.
-  - `views`                 An array of paths to use when resolving includes with relative paths.
-  - `context`               Function execution context
-  - `compileDebug`          When `false` no debug instrumentation is compiled
-  - `client`                When `true`, compiles a function that can be rendered
-    in the browser without needing to load the EJS Runtime
-    ([ejs.min.js](https://github.com/mde/ejs/releases/latest)).
-  - `delimiter`             Character to use for inner delimiter, by default '%'
-  - `openDelimiter`         Character to use for opening delimiter, by default '<'
-  - `closeDelimiter`        Character to use for closing delimiter, by default '>'
-  - `debug`                 Outputs generated function body
-  - `strict`                When set to `true`, generated function is in strict mode
-  - `_with`                 Whether or not to use `with() {}` constructs. If `false`
-    then the locals will be stored in the `locals` object. Set to `false` in strict mode.
-  - `destructuredLocals`    An array of local variables that are always destructured from
-    the locals object, available even in strict mode.
-  - `localsName`            Name to use for the object storing local variables when not using
-    `with` Defaults to `locals`
-  - `rmWhitespace`          Remove all safe-to-remove whitespace, including leading
-    and trailing whitespace. It also enables a safer version of `-%>` line
-    slurping for all scriptlet tags (it does not strip new lines of tags in
-    the middle of a line).
-  - `escape`                The escaping function used with `<%=` construct. It is
-    used in rendering and is `.toString()`ed in the generation of client functions.
-    (By default escapes XML).
-  - `outputFunctionName`    Set to a string (e.g., 'echo' or 'print') for a function to print
-    output inside scriptlet tags.
-  - `async`                 When `true`, EJS will use an async function for rendering. (Depends
-    on async/await support in the JS runtime).
-  - `includer`              Custom function to handle EJS includes, receives `(originalPath, parsedPath)`
-    parameters, where `originalPath` is the path in include as-is and `parsedPath` is the
-    previously resolved path. Should return an object `{ filename, template }`,
-    you may return only one of the properties, where `filename` is the final parsed path and `template`
-    is the included content.
-
-This project uses [JSDoc](https://jsdoc.app/). For the full public API
-documentation, clone the repository and run `jake doc`. This will run JSDoc
-with the proper options and output the documentation to `out/`. If you want
-the both the public & private API docs, run `jake devdoc` instead.
-
-### Tags
-
-  - `<%`              'Scriptlet' tag, for control-flow, no output
-  - `<%_`             'Whitespace Slurping' Scriptlet tag, strips all whitespace before it
-  - `<%=`             Outputs the value into the template (escaped)
-  - `<%-`             Outputs the unescaped value into the template
-  - `<%#`             Comment tag, no execution, no output
-  - `<%%`             Outputs a literal '<%'
-  - `%%>`             Outputs a literal '%>'
-  - `%>`              Plain ending tag
-  - `-%>`             Trim-mode ('newline slurp') tag, trims following newline
-  - `_%>`             'Whitespace Slurping' ending tag, removes all whitespace after it
-
-For the full syntax documentation, please see [docs/syntax.md](https://github.com/mde/ejs/blob/master/docs/syntax.md).
-
-### Includes
-
-Includes either have to be an absolute path, or, if not, are assumed as
-relative to the template with the `include` call. For example if you are
-including `./views/user/show.ejs` from `./views/users.ejs` you would
-use `<%- include('user/show') %>`.
-
-You must specify the `filename` option for the template with the `include`
-call unless you are using `renderFile()`.
-
-You'll likely want to use the raw output tag (`<%-`) with your include to avoid
-double-escaping the HTML output.
-
-```ejs
-<ul>
-  <% users.forEach(function(user){ %>
-    <%- include('user/show', {user: user}) %>
-  <% }); %>
-</ul>
+app.use(session(sess))
 ```
 
-Includes are inserted at runtime, so you can use variables for the path in the
-`include` call (for example `<%- include(somePath) %>`). Variables in your
-top-level data object are available to all your includes, but local variables
-need to be passed down.
+The `cookie.secure` option can also be set to the special value `'auto'` to have
+this setting automatically match the determined security of the connection. Be
+careful when using this setting if the site is available both as HTTP and HTTPS,
+as once the cookie is set on HTTPS, it will no longer be visible over HTTP. This
+is useful when the Express `"trust proxy"` setting is properly setup to simplify
+development vs production configuration.
 
-NOTE: Include preprocessor directives (`<% include user/show %>`) are
-not supported in v3.0+.
+##### genid
 
-## Custom delimiters
+Function to call to generate a new session ID. Provide a function that returns
+a string that will be used as a session ID. The function is given `req` as the
+first argument if you want to use some value attached to `req` when generating
+the ID.
 
-Custom delimiters can be applied on a per-template basis, or globally:
+The default value is a function which uses the `uid-safe` library to generate IDs.
 
-```javascript
-import ejs from 'ejs';
-const users = ['geddy', 'neil', 'alex'];
+**NOTE** be careful to generate unique IDs so your sessions do not conflict.
 
-// Just one template
-ejs.render('<p>[?= users.join(" | "); ?]</p>', {users: users}, {delimiter: '?', openDelimiter: '[', closeDelimiter: ']'});
-// => '<p>geddy | neil | alex</p>'
-
-// Or globally
-ejs.delimiter = '?';
-ejs.openDelimiter = '[';
-ejs.closeDelimiter = ']';
-ejs.render('<p>[?= users.join(" | "); ?]</p>', {users: users});
-// => '<p>geddy | neil | alex</p>'
+```js
+app.use(session({
+  genid: function(req) {
+    return genuuid() // use UUIDs for session IDs
+  },
+  secret: 'keyboard cat'
+}))
 ```
 
-### Caching
+##### name
 
-EJS ships with a basic in-process cache for caching the intermediate JavaScript
-functions used to render templates. It's easy to plug in LRU caching using
-Node's `lru-cache` library:
+The name of the session ID cookie to set in the response (and read from in the
+request).
 
-```javascript
-import ejs from 'ejs';
-import { LRUCache } from 'lru-cache';
+The default value is `'connect.sid'`.
 
-ejs.cache = LRUCache({max: 100}); // LRU cache with 100-item limit
+**Note** if you have multiple apps running on the same hostname (this is just
+the name, i.e. `localhost` or `127.0.0.1`; different schemes and ports do not
+name a different hostname), then you need to separate the session cookies from
+each other. The simplest method is to simply set different `name`s per app.
+
+##### proxy
+
+Trust the reverse proxy when setting secure cookies (via the "X-Forwarded-Proto"
+header).
+
+The default value is `undefined`.
+
+  - `true` The "X-Forwarded-Proto" header will be used.
+  - `false` All headers are ignored and the connection is considered secure only
+    if there is a direct TLS/SSL connection.
+  - `undefined` Uses the "trust proxy" setting from express
+
+##### resave
+
+Forces the session to be saved back to the session store, even if the session
+was never modified during the request. Depending on your store this may be
+necessary, but it can also create race conditions where a client makes two
+parallel requests to your server and changes made to the session in one
+request may get overwritten when the other request ends, even if it made no
+changes (this behavior also depends on what store you're using).
+
+The default value is `true`, but using the default has been deprecated,
+as the default will change in the future. Please research into this setting
+and choose what is appropriate to your use-case. Typically, you'll want
+`false`.
+
+How do I know if this is necessary for my store? The best way to know is to
+check with your store if it implements the `touch` method. If it does, then
+you can safely set `resave: false`. If it does not implement the `touch`
+method and your store sets an expiration date on stored sessions, then you
+likely need `resave: true`.
+
+##### rolling
+
+Force the session identifier cookie to be set on every response. The expiration
+is reset to the original [`maxAge`](#cookiemaxage), resetting the expiration
+countdown.
+
+The default value is `false`.
+
+With this enabled, the session identifier cookie will expire in
+[`maxAge`](#cookiemaxage) since the last response was sent instead of in
+[`maxAge`](#cookiemaxage) since the session was last modified by the server.
+
+This is typically used in conjunction with short, non-session-length
+[`maxAge`](#cookiemaxage) values to provide a quick timeout of the session data
+with reduced potential of it occurring during on going server interactions.
+
+**Note** When this option is set to `true` but the `saveUninitialized` option is
+set to `false`, the cookie will not be set on a response with an uninitialized
+session. This option only modifies the behavior when an existing session was
+loaded for the request.
+
+##### saveUninitialized
+
+Forces a session that is "uninitialized" to be saved to the store. A session is
+uninitialized when it is new but not modified. Choosing `false` is useful for
+implementing login sessions, reducing server storage usage, or complying with
+laws that require permission before setting a cookie. Choosing `false` will also
+help with race conditions where a client makes multiple parallel requests
+without a session.
+
+The default value is `true`, but using the default has been deprecated, as the
+default will change in the future. Please research into this setting and
+choose what is appropriate to your use-case.
+
+**Note** if you are using Session in conjunction with PassportJS, Passport
+will add an empty Passport object to the session for use after a user is
+authenticated, which will be treated as a modification to the session, causing
+it to be saved. *This has been fixed in PassportJS 0.3.0*
+
+##### secret
+
+**Required option**
+
+This is the secret used to sign the session ID cookie. The secret can be any type
+of value that is supported by Node.js `crypto.createHmac` (like a string or a
+`Buffer`). This can be either a single secret, or an array of multiple secrets. If
+an array of secrets is provided, only the first element will be used to sign the
+session ID cookie, while all the elements will be considered when verifying the
+signature in requests. The secret itself should be not easily parsed by a human and
+would best be a random set of characters. A best practice may include:
+
+  - The use of environment variables to store the secret, ensuring the secret itself
+    does not exist in your repository.
+  - Periodic updates of the secret, while ensuring the previous secret is in the
+    array.
+
+Using a secret that cannot be guessed will reduce the ability to hijack a session to
+only guessing the session ID (as determined by the `genid` option).
+
+Changing the secret value will invalidate all existing sessions. In order to rotate
+the secret without invalidating sessions, provide an array of secrets, with the new
+secret as first element of the array, and including previous secrets as the later
+elements.
+
+**Note** HMAC-256 is used to sign the session ID. For this reason, the secret should
+contain at least 32 bytes of entropy.
+
+##### store
+
+The session store instance, defaults to a new `MemoryStore` instance.
+
+##### unset
+
+Control the result of unsetting `req.session` (through `delete`, setting to `null`,
+etc.).
+
+The default value is `'keep'`.
+
+  - `'destroy'` The session will be destroyed (deleted) when the response ends.
+  - `'keep'` The session in the store will be kept, but modifications made during
+    the request are ignored and not saved.
+
+### req.session
+
+To store or access session data, simply use the request property `req.session`,
+which is (generally) serialized as JSON by the store, so nested objects
+are typically fine. For example below is a user-specific view counter:
+
+```js
+// Use the session middleware
+app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 60000 }}))
+
+// Access the session as req.session
+app.get('/', function(req, res, next) {
+  if (req.session.views) {
+    req.session.views++
+    res.setHeader('Content-Type', 'text/html')
+    res.write('<p>views: ' + req.session.views + '</p>')
+    res.write('<p>expires in: ' + (req.session.cookie.maxAge / 1000) + 's</p>')
+    res.end()
+  } else {
+    req.session.views = 1
+    res.end('welcome to the session demo. refresh!')
+  }
+})
 ```
 
-If you want to clear the EJS cache, call `ejs.clearCache`. If you're using the
-LRU cache and need a different limit, simple reset `ejs.cache` to a new instance
-of the LRU.
+#### Session.regenerate(callback)
 
-### Custom file loader
+To regenerate the session simply invoke the method. Once complete,
+a new SID and `Session` instance will be initialized at `req.session`
+and the `callback` will be invoked.
 
-The default file loader is `fs.readFileSync`, if you want to customize it, you can set ejs.fileLoader.
-
-```javascript
-import ejs from 'ejs';
-
-const myFileLoad = function (filePath) {
-  return 'myFileLoad: ' + fs.readFileSync(filePath);
-};
-
-ejs.fileLoader = myFileLoad;
+```js
+req.session.regenerate(function(err) {
+  // will have a new session here
+})
 ```
 
-With this feature, you can preprocess the template before reading it.
+#### Session.destroy(callback)
 
-### Layouts
+Destroys the session and will unset the `req.session` property.
+Once complete, the `callback` will be invoked.
 
-EJS does not specifically support blocks, but layouts can be implemented by
-including headers and footers, like so:
-
-```ejs
-<%- include('header') -%>
-<h1>
-  Title
-</h1>
-<p>
-  My page
-</p>
-<%- include('footer') -%>
+```js
+req.session.destroy(function(err) {
+  // cannot access session here
+})
 ```
 
-## Client-side support
+#### Session.reload(callback)
 
-Go to the [Latest Release](https://github.com/mde/ejs/releases/latest), download
-`./ejs.js` or `./ejs.min.js`. Alternately, you can compile it yourself by cloning
-the repository and running `jake build` (or `npx jake build` if jake is
-not installed globally).
+Reloads the session data from the store and re-populates the
+`req.session` object. Once complete, the `callback` will be invoked.
 
-Include one of these files on your page, and `ejs` should be available globally.
-
-### Example
-
-```html
-<div id="output"></div>
-<script src="ejs.min.js"></script>
-<script>
-  let people = ['geddy', 'neil', 'alex'],
-      html = ejs.render('<%= people.join(", "); %>', {people: people});
-  // With jQuery:
-  $('#output').html(html);
-  // Vanilla JS:
-  document.getElementById('output').innerHTML = html;
-</script>
+```js
+req.session.reload(function(err) {
+  // session updated
+})
 ```
 
-### Caveats
+#### Session.save(callback)
 
-Most of EJS will work as expected; however, there are a few things to note:
+Save the session back to the store, replacing the contents on the store with the
+contents in memory (though a store may do something else--consult the store's
+documentation for exact behavior).
 
-1. Obviously, since you do not have access to the filesystem, `ejs.renderFile()` won't work.
-2. For the same reason, `include`s do not work unless you use an `include callback`. Here is an example:
-  ```javascript
-  let str = "Hello <%= include('file', {person: 'John'}); %>",
-      fn = ejs.compile(str, {client: true});
+This method is automatically called at the end of the HTTP response if the
+session data has been altered (though this behavior can be altered with various
+options in the middleware constructor). Because of this, typically this method
+does not need to be called.
 
-  fn(data, null, function(path, d){ // include callback
-    // path -> 'file'
-    // d -> {person: 'John'}
-    // Put your code here
-    // Return the contents of file as a string
-  }); // returns rendered string
-  ```
+There are some cases where it is useful to call this method, for example,
+redirects, long-lived requests or in WebSockets.
 
-See the [examples folder](https://github.com/mde/ejs/tree/master/examples) for more details.
-
-## CLI
-
-EJS ships with a full-featured CLI. Options are similar to those used in JavaScript code:
-
-  - `-o / --output-file FILE`            Write the rendered output to FILE rather than stdout.
-  - `-f / --data-file FILE`              Must be JSON-formatted. Use parsed input from FILE as data for rendering.
-  - `-i / --data-input STRING`           Must be JSON-formatted and URI-encoded. Use parsed input from STRING as data for rendering.
-  - `-m / --delimiter CHARACTER`         Use CHARACTER with angle brackets for open/close (defaults to %).
-  - `-p / --open-delimiter CHARACTER`    Use CHARACTER instead of left angle bracket to open.
-  - `-c / --close-delimiter CHARACTER`   Use CHARACTER instead of right angle bracket to close.
-  - `-s / --strict`                      When set to `true`, generated function is in strict mode
-  - `-n / --no-with`                     Use 'locals' object for vars rather than using `with` (implies --strict).
-  - `-l / --locals-name`                 Name to use for the object storing local variables when not using `with`.
-  - `-w / --rm-whitespace`               Remove all safe-to-remove whitespace, including leading and trailing whitespace.
-  - `-d / --debug`                       Outputs generated function body
-  - `-h / --help`                        Display this help message.
-  - `-V/v / --version`                   Display the EJS version.
-
-Here are some examples of usage:
-
-```shell
-$ ejs -p [ -c ] ./template_file.ejs -o ./output.html
-$ ejs ./test/fixtures/user.ejs name=Lerxst
-$ ejs -n -l _ ./some_template.ejs -f ./data_file.json
+```js
+req.session.save(function(err) {
+  // session saved
+})
 ```
 
-### Data input
+#### Session.touch()
 
-There is a variety of ways to pass the CLI data for rendering.
+Updates the `.maxAge` property. Typically this is
+not necessary to call, as the session middleware does this for you.
 
-Stdin:
+### req.session.id
 
-```shell
-$ ./test/fixtures/user_data.json | ejs ./test/fixtures/user.ejs
-$ ejs ./test/fixtures/user.ejs < test/fixtures/user_data.json
+Each session has a unique ID associated with it. This property is an
+alias of [`req.sessionID`](#reqsessionid-1) and cannot be modified.
+It has been added to make the session ID accessible from the `session`
+object.
+
+### req.session.cookie
+
+Each session has a unique cookie object accompany it. This allows
+you to alter the session cookie per visitor. For example we can
+set `req.session.cookie.expires` to `false` to enable the cookie
+to remain for only the duration of the user-agent.
+
+#### Cookie.maxAge
+
+Alternatively `req.session.cookie.maxAge` will return the time
+remaining in milliseconds, which we may also re-assign a new value
+to adjust the `.expires` property appropriately. The following
+are essentially equivalent
+
+```js
+var hour = 3600000
+req.session.cookie.expires = new Date(Date.now() + hour)
+req.session.cookie.maxAge = hour
 ```
 
-A data file:
+For example when `maxAge` is set to `60000` (one minute), and 30 seconds
+has elapsed it will return `30000` until the current request has completed,
+at which time `req.session.touch()` is called to reset
+`req.session.cookie.maxAge` to its original value.
 
-```shell
-$ ejs ./test/fixtures/user.ejs -f ./user_data.json
+```js
+req.session.cookie.maxAge // => 30000
 ```
 
-A command-line option (must be URI-encoded):
+#### Cookie.originalMaxAge
 
-```shell
-./bin/cli.js -i %7B%22name%22%3A%20%22foo%22%7D ./test/fixtures/user.ejs
+The `req.session.cookie.originalMaxAge` property returns the original
+`maxAge` (time-to-live), in milliseconds, of the session cookie.
+
+### req.sessionID
+
+To get the ID of the loaded session, access the request property
+`req.sessionID`. This is simply a read-only value set when a session
+is loaded/created.
+
+## Session Store Implementation
+
+Every session store _must_ be an `EventEmitter` and implement specific
+methods. The following methods are the list of **required**, **recommended**,
+and **optional**.
+
+  * Required methods are ones that this module will always call on the store.
+  * Recommended methods are ones that this module will call on the store if
+    available.
+  * Optional methods are ones this module does not call at all, but helps
+    present uniform stores to users.
+
+For an example implementation view the [connect-redis](http://github.com/visionmedia/connect-redis) repo.
+
+### store.all(callback)
+
+**Optional**
+
+This optional method is used to get all sessions in the store as an array. The
+`callback` should be called as `callback(error, sessions)`.
+
+### store.destroy(sid, callback)
+
+**Required**
+
+This required method is used to destroy/delete a session from the store given
+a session ID (`sid`). The `callback` should be called as `callback(error)` once
+the session is destroyed.
+
+### store.clear(callback)
+
+**Optional**
+
+This optional method is used to delete all sessions from the store. The
+`callback` should be called as `callback(error)` once the store is cleared.
+
+### store.length(callback)
+
+**Optional**
+
+This optional method is used to get the count of all sessions in the store.
+The `callback` should be called as `callback(error, len)`.
+
+### store.get(sid, callback)
+
+**Required**
+
+This required method is used to get a session from the store given a session
+ID (`sid`). The `callback` should be called as `callback(error, session)`.
+
+The `session` argument should be a session if found, otherwise `null` or
+`undefined` if the session was not found (and there was no error). A special
+case is made when `error.code === 'ENOENT'` to act like `callback(null, null)`.
+
+### store.set(sid, session, callback)
+
+**Required**
+
+This required method is used to upsert a session into the store given a
+session ID (`sid`) and session (`session`) object. The callback should be
+called as `callback(error)` once the session has been set in the store.
+
+### store.touch(sid, session, callback)
+
+**Recommended**
+
+This recommended method is used to "touch" a given session given a
+session ID (`sid`) and session (`session`) object. The `callback` should be
+called as `callback(error)` once the session has been touched.
+
+This is primarily used when the store will automatically delete idle sessions
+and this method is used to signal to the store the given session is active,
+potentially resetting the idle timer.
+
+## Compatible Session Stores
+
+The following modules implement a session store that is compatible with this
+module. Please make a PR to add additional modules :)
+
+[![★][aerospike-session-store-image] aerospike-session-store][aerospike-session-store-url] A session store using [Aerospike](http://www.aerospike.com/).
+
+[aerospike-session-store-url]: https://www.npmjs.com/package/aerospike-session-store
+[aerospike-session-store-image]: https://badgen.net/github/stars/aerospike/aerospike-session-store-expressjs?label=%E2%98%85
+
+[![★][better-sqlite3-session-store-image] better-sqlite3-session-store][better-sqlite3-session-store-url] A session store based on [better-sqlite3](https://github.com/JoshuaWise/better-sqlite3).
+
+[better-sqlite3-session-store-url]: https://www.npmjs.com/package/better-sqlite3-session-store
+[better-sqlite3-session-store-image]: https://badgen.net/github/stars/timdaub/better-sqlite3-session-store?label=%E2%98%85
+
+[![★][cassandra-store-image] cassandra-store][cassandra-store-url] An Apache Cassandra-based session store.
+
+[cassandra-store-url]: https://www.npmjs.com/package/cassandra-store
+[cassandra-store-image]: https://badgen.net/github/stars/webcc/cassandra-store?label=%E2%98%85
+
+[![★][cluster-store-image] cluster-store][cluster-store-url] A wrapper for using in-process / embedded
+stores - such as SQLite (via knex), leveldb, files, or memory - with node cluster (desirable for Raspberry Pi 2
+and other multi-core embedded devices).
+
+[cluster-store-url]: https://www.npmjs.com/package/cluster-store
+[cluster-store-image]: https://badgen.net/github/stars/coolaj86/cluster-store?label=%E2%98%85
+
+[![★][connect-arango-image] connect-arango][connect-arango-url] An ArangoDB-based session store.
+
+[connect-arango-url]: https://www.npmjs.com/package/connect-arango
+[connect-arango-image]: https://badgen.net/github/stars/AlexanderArvidsson/connect-arango?label=%E2%98%85
+
+[![★][connect-azuretables-image] connect-azuretables][connect-azuretables-url] An [Azure Table Storage](https://azure.microsoft.com/en-gb/services/storage/tables/)-based session store.
+
+[connect-azuretables-url]: https://www.npmjs.com/package/connect-azuretables
+[connect-azuretables-image]: https://badgen.net/github/stars/mike-goodwin/connect-azuretables?label=%E2%98%85
+
+[![★][connect-cloudant-store-image] connect-cloudant-store][connect-cloudant-store-url] An [IBM Cloudant](https://cloudant.com/)-based session store.
+
+[connect-cloudant-store-url]: https://www.npmjs.com/package/connect-cloudant-store
+[connect-cloudant-store-image]: https://badgen.net/github/stars/adriantanasa/connect-cloudant-store?label=%E2%98%85
+
+[![★][connect-cosmosdb-image] connect-cosmosdb][connect-cosmosdb-url] An Azure [Cosmos DB](https://azure.microsoft.com/en-us/products/cosmos-db/)-based session store.
+
+[connect-cosmosdb-url]: https://www.npmjs.com/package/connect-cosmosdb
+[connect-cosmosdb-image]: https://badgen.net/github/stars/thekillingspree/connect-cosmosdb?label=%E2%98%85
+
+[![★][connect-couchbase-image] connect-couchbase][connect-couchbase-url] A [couchbase](http://www.couchbase.com/)-based session store.
+
+[connect-couchbase-url]: https://www.npmjs.com/package/connect-couchbase
+[connect-couchbase-image]: https://badgen.net/github/stars/christophermina/connect-couchbase?label=%E2%98%85
+
+[![★][connect-datacache-image] connect-datacache][connect-datacache-url] An [IBM Bluemix Data Cache](http://www.ibm.com/cloud-computing/bluemix/)-based session store.
+
+[connect-datacache-url]: https://www.npmjs.com/package/connect-datacache
+[connect-datacache-image]: https://badgen.net/github/stars/adriantanasa/connect-datacache?label=%E2%98%85
+
+[![★][@google-cloud/connect-datastore-image] @google-cloud/connect-datastore][@google-cloud/connect-datastore-url] A [Google Cloud Datastore](https://cloud.google.com/datastore/docs/concepts/overview)-based session store.
+
+[@google-cloud/connect-datastore-url]: https://www.npmjs.com/package/@google-cloud/connect-datastore
+[@google-cloud/connect-datastore-image]: https://badgen.net/github/stars/GoogleCloudPlatform/cloud-datastore-session-node?label=%E2%98%85
+
+[![★][connect-db2-image] connect-db2][connect-db2-url] An IBM DB2-based session store built using [ibm_db](https://www.npmjs.com/package/ibm_db) module.
+
+[connect-db2-url]: https://www.npmjs.com/package/connect-db2
+[connect-db2-image]: https://badgen.net/github/stars/wallali/connect-db2?label=%E2%98%85
+
+[![★][connect-dynamodb-image] connect-dynamodb][connect-dynamodb-url] A DynamoDB-based session store.
+
+[connect-dynamodb-url]: https://www.npmjs.com/package/connect-dynamodb
+[connect-dynamodb-image]: https://badgen.net/github/stars/ca98am79/connect-dynamodb?label=%E2%98%85
+
+[![★][@google-cloud/connect-firestore-image] @google-cloud/connect-firestore][@google-cloud/connect-firestore-url] A [Google Cloud Firestore](https://cloud.google.com/firestore/docs/overview)-based session store.
+
+[@google-cloud/connect-firestore-url]: https://www.npmjs.com/package/@google-cloud/connect-firestore
+[@google-cloud/connect-firestore-image]: https://badgen.net/github/stars/googleapis/nodejs-firestore-session?label=%E2%98%85
+
+[![★][connect-hazelcast-image] connect-hazelcast][connect-hazelcast-url] Hazelcast session store for Connect and Express.
+
+[connect-hazelcast-url]: https://www.npmjs.com/package/connect-hazelcast
+[connect-hazelcast-image]: https://badgen.net/github/stars/huseyinbabal/connect-hazelcast?label=%E2%98%85
+
+[![★][connect-loki-image] connect-loki][connect-loki-url] A Loki.js-based session store.
+
+[connect-loki-url]: https://www.npmjs.com/package/connect-loki
+[connect-loki-image]: https://badgen.net/github/stars/Requarks/connect-loki?label=%E2%98%85
+
+[![★][connect-lowdb-image] connect-lowdb][connect-lowdb-url] A lowdb-based session store.
+
+[connect-lowdb-url]: https://www.npmjs.com/package/connect-lowdb
+[connect-lowdb-image]: https://badgen.net/github/stars/travishorn/connect-lowdb?label=%E2%98%85
+
+[![★][connect-memcached-image] connect-memcached][connect-memcached-url] A memcached-based session store.
+
+[connect-memcached-url]: https://www.npmjs.com/package/connect-memcached
+[connect-memcached-image]: https://badgen.net/github/stars/balor/connect-memcached?label=%E2%98%85
+
+[![★][connect-memjs-image] connect-memjs][connect-memjs-url] A memcached-based session store using
+[memjs](https://www.npmjs.com/package/memjs) as the memcached client.
+
+[connect-memjs-url]: https://www.npmjs.com/package/connect-memjs
+[connect-memjs-image]: https://badgen.net/github/stars/liamdon/connect-memjs?label=%E2%98%85
+
+[![★][connect-ml-image] connect-ml][connect-ml-url] A MarkLogic Server-based session store.
+
+[connect-ml-url]: https://www.npmjs.com/package/connect-ml
+[connect-ml-image]: https://badgen.net/github/stars/bluetorch/connect-ml?label=%E2%98%85
+
+[![★][connect-monetdb-image] connect-monetdb][connect-monetdb-url] A MonetDB-based session store.
+
+[connect-monetdb-url]: https://www.npmjs.com/package/connect-monetdb
+[connect-monetdb-image]: https://badgen.net/github/stars/MonetDB/npm-connect-monetdb?label=%E2%98%85
+
+[![★][connect-mongo-image] connect-mongo][connect-mongo-url] A MongoDB-based session store.
+
+[connect-mongo-url]: https://www.npmjs.com/package/connect-mongo
+[connect-mongo-image]: https://badgen.net/github/stars/kcbanner/connect-mongo?label=%E2%98%85
+
+[![★][connect-mongodb-session-image] connect-mongodb-session][connect-mongodb-session-url] Lightweight MongoDB-based session store built and maintained by MongoDB.
+
+[connect-mongodb-session-url]: https://www.npmjs.com/package/connect-mongodb-session
+[connect-mongodb-session-image]: https://badgen.net/github/stars/mongodb-js/connect-mongodb-session?label=%E2%98%85
+
+[![★][connect-mssql-v2-image] connect-mssql-v2][connect-mssql-v2-url] A Microsoft SQL Server-based session store based on [connect-mssql](https://www.npmjs.com/package/connect-mssql).
+
+[connect-mssql-v2-url]: https://www.npmjs.com/package/connect-mssql-v2
+[connect-mssql-v2-image]: https://badgen.net/github/stars/jluboff/connect-mssql-v2?label=%E2%98%85
+
+[![★][connect-neo4j-image] connect-neo4j][connect-neo4j-url] A [Neo4j](https://neo4j.com)-based session store.
+
+[connect-neo4j-url]: https://www.npmjs.com/package/connect-neo4j
+[connect-neo4j-image]: https://badgen.net/github/stars/MaxAndersson/connect-neo4j?label=%E2%98%85
+
+[![★][connect-ottoman-image] connect-ottoman][connect-ottoman-url] A [couchbase ottoman](http://www.couchbase.com/)-based session store.
+
+[connect-ottoman-url]: https://www.npmjs.com/package/connect-ottoman
+[connect-ottoman-image]: https://badgen.net/github/stars/noiissyboy/connect-ottoman?label=%E2%98%85
+
+[![★][connect-pg-simple-image] connect-pg-simple][connect-pg-simple-url] A PostgreSQL-based session store.
+
+[connect-pg-simple-url]: https://www.npmjs.com/package/connect-pg-simple
+[connect-pg-simple-image]: https://badgen.net/github/stars/voxpelli/node-connect-pg-simple?label=%E2%98%85
+
+[![★][connect-redis-image] connect-redis][connect-redis-url] A Redis-based session store.
+
+[connect-redis-url]: https://www.npmjs.com/package/connect-redis
+[connect-redis-image]: https://badgen.net/github/stars/tj/connect-redis?label=%E2%98%85
+
+[![★][connect-session-firebase-image] connect-session-firebase][connect-session-firebase-url] A session store based on the [Firebase Realtime Database](https://firebase.google.com/docs/database/)
+
+[connect-session-firebase-url]: https://www.npmjs.com/package/connect-session-firebase
+[connect-session-firebase-image]: https://badgen.net/github/stars/benweier/connect-session-firebase?label=%E2%98%85
+
+[![★][connect-session-knex-image] connect-session-knex][connect-session-knex-url] A session store using
+[Knex.js](http://knexjs.org/), which is a SQL query builder for PostgreSQL, MySQL, MariaDB, SQLite3, and Oracle.
+
+[connect-session-knex-url]: https://www.npmjs.com/package/connect-session-knex
+[connect-session-knex-image]: https://badgen.net/github/stars/llambda/connect-session-knex?label=%E2%98%85
+
+[![★][connect-session-sequelize-image] connect-session-sequelize][connect-session-sequelize-url] A session store using
+[Sequelize.js](http://sequelizejs.com/), which is a Node.js / io.js ORM for PostgreSQL, MySQL, SQLite and MSSQL.
+
+[connect-session-sequelize-url]: https://www.npmjs.com/package/connect-session-sequelize
+[connect-session-sequelize-image]: https://badgen.net/github/stars/mweibel/connect-session-sequelize?label=%E2%98%85
+
+[![★][connect-sqlite3-image] connect-sqlite3][connect-sqlite3-url] A [SQLite3](https://github.com/mapbox/node-sqlite3) session store modeled after the TJ's `connect-redis` store.
+
+[connect-sqlite3-url]: https://www.npmjs.com/package/connect-sqlite3
+[connect-sqlite3-image]: https://badgen.net/github/stars/rawberg/connect-sqlite3?label=%E2%98%85
+
+[![★][connect-typeorm-image] connect-typeorm][connect-typeorm-url] A [TypeORM](https://github.com/typeorm/typeorm)-based session store.
+
+[connect-typeorm-url]: https://www.npmjs.com/package/connect-typeorm
+[connect-typeorm-image]: https://badgen.net/github/stars/makepost/connect-typeorm?label=%E2%98%85
+
+[![★][couchdb-expression-image] couchdb-expression][couchdb-expression-url] A [CouchDB](https://couchdb.apache.org/)-based session store.
+
+[couchdb-expression-url]: https://www.npmjs.com/package/couchdb-expression
+[couchdb-expression-image]: https://badgen.net/github/stars/tkshnwesper/couchdb-expression?label=%E2%98%85
+
+[![★][dynamodb-store-image] dynamodb-store][dynamodb-store-url] A DynamoDB-based session store.
+
+[dynamodb-store-url]: https://www.npmjs.com/package/dynamodb-store
+[dynamodb-store-image]: https://badgen.net/github/stars/rafaelrpinto/dynamodb-store?label=%E2%98%85
+
+[![★][dynamodb-store-v3-image] dynamodb-store-v3][dynamodb-store-v3-url] Implementation of a session store using DynamoDB backed by the [AWS SDK for JavaScript v3](https://github.com/aws/aws-sdk-js-v3).
+
+[dynamodb-store-v3-url]: https://www.npmjs.com/package/dynamodb-store-v3
+[dynamodb-store-v3-image]: https://badgen.net/github/stars/FryDay/dynamodb-store-v3?label=%E2%98%85
+
+[![★][express-etcd-image] express-etcd][express-etcd-url] An [etcd](https://github.com/stianeikeland/node-etcd) based session store.
+
+[express-etcd-url]: https://www.npmjs.com/package/express-etcd
+[express-etcd-image]: https://badgen.net/github/stars/gildean/express-etcd?label=%E2%98%85
+
+[![★][express-mysql-session-image] express-mysql-session][express-mysql-session-url] A session store using native
+[MySQL](https://www.mysql.com/) via the [node-mysql](https://github.com/felixge/node-mysql) module.
+
+[express-mysql-session-url]: https://www.npmjs.com/package/express-mysql-session
+[express-mysql-session-image]: https://badgen.net/github/stars/chill117/express-mysql-session?label=%E2%98%85
+
+[![★][express-nedb-session-image] express-nedb-session][express-nedb-session-url] A NeDB-based session store.
+
+[express-nedb-session-url]: https://www.npmjs.com/package/express-nedb-session
+[express-nedb-session-image]: https://badgen.net/github/stars/louischatriot/express-nedb-session?label=%E2%98%85
+
+[![★][express-oracle-session-image] express-oracle-session][express-oracle-session-url] A session store using native
+[oracle](https://www.oracle.com/) via the [node-oracledb](https://www.npmjs.com/package/oracledb) module.
+
+[express-oracle-session-url]: https://www.npmjs.com/package/express-oracle-session
+[express-oracle-session-image]: https://badgen.net/github/stars/slumber86/express-oracle-session?label=%E2%98%85
+
+[![★][express-session-cache-manager-image] express-session-cache-manager][express-session-cache-manager-url]
+A store that implements [cache-manager](https://www.npmjs.com/package/cache-manager), which supports
+a [variety of storage types](https://www.npmjs.com/package/cache-manager#store-engines).
+
+[express-session-cache-manager-url]: https://www.npmjs.com/package/express-session-cache-manager
+[express-session-cache-manager-image]: https://badgen.net/github/stars/theogravity/express-session-cache-manager?label=%E2%98%85
+
+[![★][express-session-etcd3-image] express-session-etcd3][express-session-etcd3-url] An [etcd3](https://github.com/mixer/etcd3) based session store.
+
+[express-session-etcd3-url]: https://www.npmjs.com/package/express-session-etcd3
+[express-session-etcd3-image]: https://badgen.net/github/stars/willgm/express-session-etcd3?label=%E2%98%85
+
+[![★][express-session-level-image] express-session-level][express-session-level-url] A [LevelDB](https://github.com/Level/levelup) based session store.
+
+[express-session-level-url]: https://www.npmjs.com/package/express-session-level
+[express-session-level-image]: https://badgen.net/github/stars/tgohn/express-session-level?label=%E2%98%85
+
+[![★][express-session-rsdb-image] express-session-rsdb][express-session-rsdb-url] Session store based on Rocket-Store: A very simple, super fast and yet powerful, flat file database.
+
+[express-session-rsdb-url]: https://www.npmjs.com/package/express-session-rsdb
+[express-session-rsdb-image]: https://badgen.net/github/stars/paragi/express-session-rsdb?label=%E2%98%85
+
+[![★][express-sessions-image] express-sessions][express-sessions-url] A session store supporting both MongoDB and Redis.
+
+[express-sessions-url]: https://www.npmjs.com/package/express-sessions
+[express-sessions-image]: https://badgen.net/github/stars/konteck/express-sessions?label=%E2%98%85
+
+[![★][firestore-store-image] firestore-store][firestore-store-url] A [Firestore](https://github.com/hendrysadrak/firestore-store)-based session store.
+
+[firestore-store-url]: https://www.npmjs.com/package/firestore-store
+[firestore-store-image]: https://badgen.net/github/stars/hendrysadrak/firestore-store?label=%E2%98%85
+
+[![★][fortune-session-image] fortune-session][fortune-session-url] A [Fortune.js](https://github.com/fortunejs/fortune)
+based session store. Supports all backends supported by Fortune (MongoDB, Redis, Postgres, NeDB).
+
+[fortune-session-url]: https://www.npmjs.com/package/fortune-session
+[fortune-session-image]: https://badgen.net/github/stars/aliceklipper/fortune-session?label=%E2%98%85
+
+[![★][hazelcast-store-image] hazelcast-store][hazelcast-store-url] A Hazelcast-based session store built on the [Hazelcast Node Client](https://www.npmjs.com/package/hazelcast-client).
+
+[hazelcast-store-url]: https://www.npmjs.com/package/hazelcast-store
+[hazelcast-store-image]: https://badgen.net/github/stars/jackspaniel/hazelcast-store?label=%E2%98%85
+
+[![★][level-session-store-image] level-session-store][level-session-store-url] A LevelDB-based session store.
+
+[level-session-store-url]: https://www.npmjs.com/package/level-session-store
+[level-session-store-image]: https://badgen.net/github/stars/toddself/level-session-store?label=%E2%98%85
+
+[![★][lowdb-session-store-image] lowdb-session-store][lowdb-session-store-url] A [lowdb](https://www.npmjs.com/package/lowdb)-based session store.
+
+[lowdb-session-store-url]: https://www.npmjs.com/package/lowdb-session-store
+[lowdb-session-store-image]: https://badgen.net/github/stars/fhellwig/lowdb-session-store?label=%E2%98%85
+
+[![★][medea-session-store-image] medea-session-store][medea-session-store-url] A Medea-based session store.
+
+[medea-session-store-url]: https://www.npmjs.com/package/medea-session-store
+[medea-session-store-image]: https://badgen.net/github/stars/BenjaminVadant/medea-session-store?label=%E2%98%85
+
+[![★][memorystore-image] memorystore][memorystore-url] A memory session store made for production.
+
+[memorystore-url]: https://www.npmjs.com/package/memorystore
+[memorystore-image]: https://badgen.net/github/stars/roccomuso/memorystore?label=%E2%98%85
+
+[![★][mssql-session-store-image] mssql-session-store][mssql-session-store-url] A SQL Server-based session store.
+
+[mssql-session-store-url]: https://www.npmjs.com/package/mssql-session-store
+[mssql-session-store-image]: https://badgen.net/github/stars/jwathen/mssql-session-store?label=%E2%98%85
+
+[![★][nedb-session-store-image] nedb-session-store][nedb-session-store-url] An alternate NeDB-based (either in-memory or file-persisted) session store.
+
+[nedb-session-store-url]: https://www.npmjs.com/package/nedb-session-store
+[nedb-session-store-image]: https://badgen.net/github/stars/JamesMGreene/nedb-session-store?label=%E2%98%85
+
+[![★][@quixo3/prisma-session-store-image] @quixo3/prisma-session-store][@quixo3/prisma-session-store-url] A session store for the [Prisma Framework](https://www.prisma.io).
+
+[@quixo3/prisma-session-store-url]: https://www.npmjs.com/package/@quixo3/prisma-session-store
+[@quixo3/prisma-session-store-image]: https://badgen.net/github/stars/kleydon/prisma-session-store?label=%E2%98%85
+
+[![★][restsession-image] restsession][restsession-url] Store sessions utilizing a RESTful API
+
+[restsession-url]: https://www.npmjs.com/package/restsession
+[restsession-image]: https://badgen.net/github/stars/jankal/restsession?label=%E2%98%85
+
+[![★][sequelstore-connect-image] sequelstore-connect][sequelstore-connect-url] A session store using [Sequelize.js](http://sequelizejs.com/).
+
+[sequelstore-connect-url]: https://www.npmjs.com/package/sequelstore-connect
+[sequelstore-connect-image]: https://badgen.net/github/stars/MattMcFarland/sequelstore-connect?label=%E2%98%85
+
+[![★][session-file-store-image] session-file-store][session-file-store-url] A file system-based session store.
+
+[session-file-store-url]: https://www.npmjs.com/package/session-file-store
+[session-file-store-image]: https://badgen.net/github/stars/valery-barysok/session-file-store?label=%E2%98%85
+
+[![★][session-pouchdb-store-image] session-pouchdb-store][session-pouchdb-store-url] Session store for PouchDB / CouchDB. Accepts embedded, custom, or remote PouchDB instance and realtime synchronization.
+
+[session-pouchdb-store-url]: https://www.npmjs.com/package/session-pouchdb-store
+[session-pouchdb-store-image]: https://badgen.net/github/stars/solzimer/session-pouchdb-store?label=%E2%98%85
+
+[![★][@cyclic.sh/session-store-image] @cyclic.sh/session-store][@cyclic.sh/session-store-url] A DynamoDB-based session store for [Cyclic.sh](https://www.cyclic.sh/) apps.
+
+[@cyclic.sh/session-store-url]: https://www.npmjs.com/package/@cyclic.sh/session-store
+[@cyclic.sh/session-store-image]: https://badgen.net/github/stars/cyclic-software/session-store?label=%E2%98%85
+
+[![★][@databunker/session-store-image] @databunker/session-store][@databunker/session-store-url] A [Databunker](https://databunker.org/)-based encrypted session store.
+
+[@databunker/session-store-url]: https://www.npmjs.com/package/@databunker/session-store
+[@databunker/session-store-image]: https://badgen.net/github/stars/securitybunker/databunker-session-store?label=%E2%98%85
+
+[![★][sessionstore-image] sessionstore][sessionstore-url] A session store that works with various databases.
+
+[sessionstore-url]: https://www.npmjs.com/package/sessionstore
+[sessionstore-image]: https://badgen.net/github/stars/adrai/sessionstore?label=%E2%98%85
+
+[![★][tch-nedb-session-image] tch-nedb-session][tch-nedb-session-url] A file system session store based on NeDB.
+
+[tch-nedb-session-url]: https://www.npmjs.com/package/tch-nedb-session
+[tch-nedb-session-image]: https://badgen.net/github/stars/tomaschyly/NeDBSession?label=%E2%98%85
+
+## Examples
+
+### View counter
+
+A simple example using `express-session` to store page views for a user.
+
+```js
+var express = require('express')
+var parseurl = require('parseurl')
+var session = require('express-session')
+
+var app = express()
+
+app.use(session({
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true
+}))
+
+app.use(function (req, res, next) {
+  if (!req.session.views) {
+    req.session.views = {}
+  }
+
+  // get the url pathname
+  var pathname = parseurl(req).pathname
+
+  // count the views
+  req.session.views[pathname] = (req.session.views[pathname] || 0) + 1
+
+  next()
+})
+
+app.get('/foo', function (req, res, next) {
+  res.send('you viewed this page ' + req.session.views['/foo'] + ' times')
+})
+
+app.get('/bar', function (req, res, next) {
+  res.send('you viewed this page ' + req.session.views['/bar'] + ' times')
+})
+
+app.listen(3000)
 ```
 
-Or, passing values directly at the end of the invocation:
+### User login
 
-```shell
-./bin/cli.js -m $ ./test/fixtures/user.ejs name=foo
+A simple example using `express-session` to keep a user log in session.
+
+```js
+var escapeHtml = require('escape-html')
+var express = require('express')
+var session = require('express-session')
+
+var app = express()
+
+app.use(session({
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true
+}))
+
+// middleware to test if authenticated
+function isAuthenticated (req, res, next) {
+  if (req.session.user) next()
+  else next('route')
+}
+
+app.get('/', isAuthenticated, function (req, res) {
+  // this is only called when there is an authentication user due to isAuthenticated
+  res.send('hello, ' + escapeHtml(req.session.user) + '!' +
+    ' <a href="/logout">Logout</a>')
+})
+
+app.get('/', function (req, res) {
+  res.send('<form action="/login" method="post">' +
+    'Username: <input name="user"><br>' +
+    'Password: <input name="pass" type="password"><br>' +
+    '<input type="submit" text="Login"></form>')
+})
+
+app.post('/login', express.urlencoded({ extended: false }), function (req, res) {
+  // login logic to validate req.body.user and req.body.pass
+  // would be implemented here. for this example any combo works
+
+  // regenerate the session, which is good practice to help
+  // guard against forms of session fixation
+  req.session.regenerate(function (err) {
+    if (err) next(err)
+
+    // store user information in session, typically a user id
+    req.session.user = req.body.user
+
+    // save the session before redirection to ensure page
+    // load does not happen before session is saved
+    req.session.save(function (err) {
+      if (err) return next(err)
+      res.redirect('/')
+    })
+  })
+})
+
+app.get('/logout', function (req, res, next) {
+  // logout logic
+
+  // clear the user from the session object and save.
+  // this will ensure that re-using the old session id
+  // does not have a logged in user
+  req.session.user = null
+  req.session.save(function (err) {
+    if (err) next(err)
+
+    // regenerate the session, which is good practice to help
+    // guard against forms of session fixation
+    req.session.regenerate(function (err) {
+      if (err) next(err)
+      res.redirect('/')
+    })
+  })
+})
+
+app.listen(3000)
 ```
 
-### Output
+## Debugging
 
-The CLI by default send output to stdout, but you can use the `-o` or `--output-file`
-flag to specify a target file to send the output to.
+This module uses the [debug](https://www.npmjs.com/package/debug) module
+internally to log information about session operations.
 
-## IDE Integration with Syntax Highlighting
+To see all the internal logs, set the `DEBUG` environment variable to
+`express-session` when launching your app (`npm start`, in this example):
 
-VSCode:Javascript EJS by *DigitalBrainstem*
+```sh
+$ DEBUG=express-session npm start
+```
 
-## Related projects
+On Windows, use the corresponding command;
 
-There are a number of implementations of EJS:
-
- * TJ's implementation, the v1 of this library: https://github.com/tj/ejs
- * EJS Embedded JavaScript Framework on Google Code: https://code.google.com/p/embeddedjavascript/
- * Sam Stephenson's Ruby implementation: https://rubygems.org/gems/ejs
- * Erubis, an ERB implementation which also runs JavaScript: http://www.kuwata-lab.com/erubis/users-guide.04.html#lang-javascript
- * DigitalBrainstem EJS Language support: https://github.com/Digitalbrainstem/ejs-grammar
+```sh
+> set DEBUG=express-session & npm start
+```
 
 ## License
 
-Licensed under the Apache License, Version 2.0
-(<http://www.apache.org/licenses/LICENSE-2.0>)
+[MIT](LICENSE)
 
-- - -
-EJS Embedded JavaScript templates copyright 2112
-mde@fleegix.org.
+[rfc-6265bis-03-4.1.2.7]: https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-03#section-4.1.2.7
+[rfc-cutler-httpbis-partitioned-cookies]: https://tools.ietf.org/html/draft-cutler-httpbis-partitioned-cookies/
+[rfc-west-cookie-priority-00-4.1]: https://tools.ietf.org/html/draft-west-cookie-priority-00#section-4.1
+[ci-image]: https://badgen.net/github/checks/expressjs/session/master?label=ci
+[ci-url]: https://github.com/expressjs/session/actions?query=workflow%3Aci
+[coveralls-image]: https://badgen.net/coveralls/c/github/expressjs/session/master
+[coveralls-url]: https://coveralls.io/r/expressjs/session?branch=master
+[node-url]: https://nodejs.org/en/download
+[npm-downloads-image]: https://badgen.net/npm/dm/express-session
+[npm-url]: https://npmjs.org/package/express-session
+[npm-version-image]: https://badgen.net/npm/v/express-session
