@@ -1,50 +1,102 @@
-/*:nodoc:*
- * class ActionStore
- *
- * This action just stores the argument’s value. This is the default action.
- *
- * This class inherited from [[Action]]
- *
- **/
+/*!
+ * Connect - session - Store
+ * Copyright(c) 2010 Sencha Inc.
+ * Copyright(c) 2011 TJ Holowaychuk
+ * MIT Licensed
+ */
+
 'use strict';
 
-var util = require('util');
+/**
+ * Module dependencies.
+ * @private
+ */
 
-var Action = require('../action');
+var Cookie = require('./cookie')
+var EventEmitter = require('events').EventEmitter
+var Session = require('./session')
+var util = require('util')
 
-// Constants
-var c = require('../const');
+/**
+ * Module exports.
+ * @public
+ */
 
+module.exports = Store
 
-/*:nodoc:*
- * new ActionStore(options)
- * - options (object): options hash see [[Action.new]]
+/**
+ * Abstract base class for session stores.
+ * @public
+ */
+
+function Store () {
+  EventEmitter.call(this)
+}
+
+/**
+ * Inherit from EventEmitter.
+ */
+
+util.inherits(Store, EventEmitter)
+
+/**
+ * Re-generate the given requests's session.
  *
- **/
-var ActionStore = module.exports = function ActionStore(options) {
-  options = options || {};
-  if (this.nargs <= 0) {
-    throw new Error('nargs for store actions must be > 0; if you ' +
-        'have nothing to store, actions such as store ' +
-        'true or store const may be more appropriate');
+ * @param {IncomingRequest} req
+ * @return {Function} fn
+ * @api public
+ */
 
-  }
-  if (typeof this.constant !== 'undefined' && this.nargs !== c.OPTIONAL) {
-    throw new Error('nargs must be OPTIONAL to supply const');
-  }
-  Action.call(this, options);
+Store.prototype.regenerate = function(req, fn){
+  var self = this;
+  this.destroy(req.sessionID, function(err){
+    self.generate(req);
+    fn(err);
+  });
 };
-util.inherits(ActionStore, Action);
 
-/*:nodoc:*
- * ActionStore#call(parser, namespace, values, optionString) -> Void
- * - parser (ArgumentParser): current parser
- * - namespace (Namespace): namespace for output data
- * - values (Array): parsed values
- * - optionString (Array): input option string(not parsed)
+/**
+ * Load a `Session` instance via the given `sid`
+ * and invoke the callback `fn(err, sess)`.
  *
- * Call the action. Save result in namespace object
- **/
-ActionStore.prototype.call = function (parser, namespace, values) {
-  namespace.set(this.dest, values);
+ * @param {String} sid
+ * @param {Function} fn
+ * @api public
+ */
+
+Store.prototype.load = function(sid, fn){
+  var self = this;
+  this.get(sid, function(err, sess){
+    if (err) return fn(err);
+    if (!sess) return fn();
+    var req = { sessionID: sid, sessionStore: self };
+    fn(null, self.createSession(req, sess))
+  });
+};
+
+/**
+ * Create session from JSON `sess` data.
+ *
+ * @param {IncomingRequest} req
+ * @param {Object} sess
+ * @return {Session}
+ * @api private
+ */
+
+Store.prototype.createSession = function(req, sess){
+  var expires = sess.cookie.expires
+  var originalMaxAge = sess.cookie.originalMaxAge
+
+  sess.cookie = new Cookie(sess.cookie);
+
+  if (typeof expires === 'string') {
+    // convert expires to a Date object
+    sess.cookie.expires = new Date(expires)
+  }
+
+  // keep originalMaxAge intact
+  sess.cookie.originalMaxAge = originalMaxAge
+
+  req.session = new Session(req, sess);
+  return req.session;
 };

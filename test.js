@@ -1,67 +1,24 @@
-var test = require('tape')
-var Expand = require('./')
 
-test('default expands {} placeholders', function (t) {
-  var expand = Expand()
-  t.equal(typeof expand, 'function', 'is a function')
-  t.equal(expand('{foo}/{bar}', {
-    foo: 'BAR', bar: 'FOO'
-  }), 'BAR/FOO')
-  t.equal(expand('{foo}{foo}{foo}', {
-    foo: 'FOO'
-  }), 'FOOFOOFOO', 'expands one placeholder many times')
-  t.end()
-})
+var sep = require('path').sep || '/';
+var assert = require('assert');
+var uri2path = require('../');
+var tests = require('./tests.json');
 
-test('support for custom separators', function (t) {
-  var expand = Expand({ sep: '[]' })
-  t.equal(expand('[foo]/[bar]', {
-    foo: 'BAR', bar: 'FOO'
-  }), 'BAR/FOO')
-  t.equal(expand('[foo][foo][foo]', {
-    foo: 'FOO'
-  }), 'FOOFOOFOO', 'expands one placeholder many times')
-  t.end()
-})
+describe('file-uri-to-path', function () {
 
-test('support for longer custom separators', function (t) {
-  var expand = Expand({ sep: '[[]]' })
-  t.equal(expand('[[foo]]/[[bar]]', {
-    foo: 'BAR', bar: 'FOO'
-  }), 'BAR/FOO')
-  t.equal(expand('[[foo]][[foo]][[foo]]', {
-    foo: 'FOO'
-  }), 'FOOFOOFOO', 'expands one placeholder many times')
-  t.end()
-})
+  Object.keys(tests).forEach(function (uri) {
 
-test('whitespace-insensitive', function (t) {
-  var expand = Expand({ sep: '[]' })
-  t.equal(expand('[ foo ]/[ bar ]', {
-    foo: 'BAR', bar: 'FOO'
-  }), 'BAR/FOO')
-  t.equal(expand('[ foo ][ foo  ][ foo]', {
-    foo: 'FOO'
-  }), 'FOOFOOFOO', 'expands one placeholder many times')
-  t.end()
-})
+    // the test cases were generated from Windows' PathCreateFromUrlA() function.
+    // On Unix, we have to replace the path separator with the Unix one instead of
+    // the Windows one.
+    var expected = tests[uri].replace(/\\/g, sep);
 
-test('dollar escape', function (t) {
-  var expand = Expand()
-  t.equal(expand('before {foo} after', {
-    foo: '$'
-  }), 'before $ after')
-  t.equal(expand('before {foo} after', {
-    foo: '$&'
-  }), 'before $& after')
-  t.equal(expand('before {foo} after', {
-    foo: '$`'
-  }), 'before $` after')
-  t.equal(expand('before {foo} after', {
-    foo: '$\''
-  }), 'before $\' after')
-  t.equal(expand('before {foo} after', {
-    foo: '$0'
-  }), 'before $0 after')
-  t.end()
-})
+    it('should convert ' + JSON.stringify(uri) + ' to ' + JSON.stringify(expected),
+    function () {
+      var actual = uri2path(uri);
+      assert.equal(actual, expected);
+    });
+
+  });
+
+});

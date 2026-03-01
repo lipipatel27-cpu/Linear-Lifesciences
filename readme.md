@@ -1,48 +1,51 @@
-# decompress-response [![Build Status](https://travis-ci.com/sindresorhus/decompress-response.svg?branch=master)](https://travis-ci.com/sindresorhus/decompress-response)
+# ms
 
-> Decompress a HTTP response if needed
+[![Build Status](https://travis-ci.org/zeit/ms.svg?branch=master)](https://travis-ci.org/zeit/ms)
+[![Slack Channel](http://zeit-slackin.now.sh/badge.svg)](https://zeit.chat/)
 
-Decompresses the [response](https://nodejs.org/api/http.html#http_class_http_incomingmessage) from [`http.request`](https://nodejs.org/api/http.html#http_http_request_options_callback) if it's gzipped, deflated or compressed with Brotli, otherwise just passes it through.
+Use this package to easily convert various time formats to milliseconds.
 
-Used by [`got`](https://github.com/sindresorhus/got).
-
-## Install
-
-```
-$ npm install decompress-response
-```
-
-## Usage
+## Examples
 
 ```js
-const http = require('http');
-const decompressResponse = require('decompress-response');
-
-http.get('https://sindresorhus.com', response => {
-	response = decompressResponse(response);
-});
+ms('2 days')  // 172800000
+ms('1d')      // 86400000
+ms('10h')     // 36000000
+ms('2.5 hrs') // 9000000
+ms('2h')      // 7200000
+ms('1m')      // 60000
+ms('5s')      // 5000
+ms('1y')      // 31557600000
+ms('100')     // 100
 ```
 
-## API
+### Convert from milliseconds
 
-### decompressResponse(response)
+```js
+ms(60000)             // "1m"
+ms(2 * 60000)         // "2m"
+ms(ms('10 hours'))    // "10h"
+```
 
-Returns the decompressed HTTP response stream.
+### Time format written-out
 
-#### response
+```js
+ms(60000, { long: true })             // "1 minute"
+ms(2 * 60000, { long: true })         // "2 minutes"
+ms(ms('10 hours'), { long: true })    // "10 hours"
+```
 
-Type: [`http.IncomingMessage`](https://nodejs.org/api/http.html#http_class_http_incomingmessage)
+## Features
 
-The HTTP incoming stream with compressed data.
+- Works both in [node](https://nodejs.org) and in the browser.
+- If a number is supplied to `ms`, a string with a unit is returned.
+- If a string that contains the number is supplied, it returns it as a number (e.g.: it returns `100` for `'100'`).
+- If you pass a string with a number and a valid unit, the number of equivalent ms is returned.
 
----
+## Caught a bug?
 
-<div align="center">
-	<b>
-		<a href="https://tidelift.com/subscription/pkg/npm-decompress-response?utm_source=npm-decompress-response&utm_medium=referral&utm_campaign=readme">Get professional support for this package with a Tidelift subscription</a>
-	</b>
-	<br>
-	<sub>
-		Tidelift helps make open source sustainable for maintainers while giving companies<br>assurances about security, maintenance, and licensing for their dependencies.
-	</sub>
-</div>
+1. [Fork](https://help.github.com/articles/fork-a-repo/) this repository to your own GitHub account and then [clone](https://help.github.com/articles/cloning-a-repository/) it to your local device
+2. Link the package to the global module directory: `npm link`
+3. Within the module you want to test your local development instance of ms, just link it to the dependencies: `npm link ms`. Instead of the default one from npm, node will now use your clone of ms!
+
+As always, you can run the tests using: `npm test`
