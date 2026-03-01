@@ -1,185 +1,30 @@
-1.0.10 / 2018-02-15
-------------------
+# Changelog
 
-- Use .concat instead of + for arrays, #122.
+All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-1.0.9 / 2016-09-29
-------------------
+## [v1.0.2](https://github.com/ljharb/call-bind-apply-helpers/compare/v1.0.1...v1.0.2) - 2025-02-12
 
-- Rerelease after 1.0.8 - deps cleanup.
+### Commits
 
+- [types] improve inferred types [`e6f9586`](https://github.com/ljharb/call-bind-apply-helpers/commit/e6f95860a3c72879cb861a858cdfb8138fbedec1)
+- [Dev Deps] update `@arethetypeswrong/cli`, `@ljharb/tsconfig`, `@types/tape`, `es-value-fixtures`, `for-each`, `has-strict-mode`, `object-inspect` [`e43d540`](https://github.com/ljharb/call-bind-apply-helpers/commit/e43d5409f97543bfbb11f345d47d8ce4e066d8c1)
 
-1.0.8 / 2016-09-29
-------------------
+## [v1.0.1](https://github.com/ljharb/call-bind-apply-helpers/compare/v1.0.0...v1.0.1) - 2024-12-08
 
-- Maintenance (deps bump, fix node 6.5+ tests, coverage report).
+### Commits
 
+- [types] `reflectApply`: fix types [`4efc396`](https://github.com/ljharb/call-bind-apply-helpers/commit/4efc3965351a4f02cc55e836fa391d3d11ef2ef8)
+- [Fix] `reflectApply`: oops, Reflect is not a function [`83cc739`](https://github.com/ljharb/call-bind-apply-helpers/commit/83cc7395de6b79b7730bdf092f1436f0b1263c75)
+- [Dev Deps] update `@arethetypeswrong/cli` [`80bd5d3`](https://github.com/ljharb/call-bind-apply-helpers/commit/80bd5d3ae58b4f6b6995ce439dd5a1bcb178a940)
 
-1.0.7 / 2016-03-17
-------------------
+## v1.0.0 - 2024-12-05
 
-- Teach `addArgument` to accept string arg names. #97, @tomxtobin.
+### Commits
 
-
-1.0.6 / 2016-02-06
-------------------
-
-- Maintenance: moved to eslint & updated CS.
-
-
-1.0.5 / 2016-02-05
-------------------
-
-- Removed lodash dependency to significantly reduce install size.
-  Thanks to @mourner.
-
-
-1.0.4 / 2016-01-17
-------------------
-
-- Maintenance: lodash update to 4.0.0.
-
-
-1.0.3 / 2015-10-27
-------------------
-
-- Fix parse `=` in args: `--examplepath="C:\myfolder\env=x64"`. #84, @CatWithApple.
-
-
-1.0.2 / 2015-03-22
-------------------
-
-- Relaxed lodash version dependency.
-
-
-1.0.1 / 2015-02-20
-------------------
-
-- Changed dependencies to be compatible with ancient nodejs.
-
-
-1.0.0 / 2015-02-19
-------------------
-
-- Maintenance release.
-- Replaced `underscore` with `lodash`.
-- Bumped version to 1.0.0 to better reflect semver meaning.
-- HISTORY.md -> CHANGELOG.md
-
-
-0.1.16 / 2013-12-01
--------------------
-
-- Maintenance release. Updated dependencies and docs.
-
-
-0.1.15 / 2013-05-13
--------------------
-
-- Fixed #55, @trebor89
-
-
-0.1.14 / 2013-05-12
--------------------
-
-- Fixed #62, @maxtaco
-
-
-0.1.13 / 2013-04-08
--------------------
-
-- Added `.npmignore` to reduce package size
-
-
-0.1.12 / 2013-02-10
--------------------
-
-- Fixed conflictHandler (#46), @hpaulj
-
-
-0.1.11 / 2013-02-07
--------------------
-
-- Multiple bugfixes, @hpaulj
-- Added 70+ tests (ported from python), @hpaulj
-- Added conflictHandler, @applepicke
-- Added fromfilePrefixChar, @hpaulj
-
-
-0.1.10 / 2012-12-30
--------------------
-
-- Added [mutual exclusion](http://docs.python.org/dev/library/argparse.html#mutual-exclusion)
-  support, thanks to @hpaulj
-- Fixed options check for `storeConst` & `appendConst` actions, thanks to @hpaulj
-
-
-0.1.9 / 2012-12-27
-------------------
-
-- Fixed option dest interferens with other options (issue #23), thanks to @hpaulj
-- Fixed default value behavior with `*` positionals, thanks to @hpaulj
-- Improve `getDefault()` behavior, thanks to @hpaulj
-- Imrove negative argument parsing, thanks to @hpaulj
-
-
-0.1.8 / 2012-12-01
-------------------
-
-- Fixed parser parents (issue #19), thanks to @hpaulj
-- Fixed negative argument parse (issue #20), thanks to @hpaulj
-
-
-0.1.7 / 2012-10-14
-------------------
-
-- Fixed 'choices' argument parse (issue #16)
-- Fixed stderr output (issue #15)
-
-
-0.1.6 / 2012-09-09
-------------------
-
-- Fixed check for conflict of options (thanks to @tomxtobin)
-
-
-0.1.5 / 2012-09-03
-------------------
-
-- Fix parser #setDefaults method (thanks to @tomxtobin)
-
-
-0.1.4 / 2012-07-30
-------------------
-
-- Fixed pseudo-argument support (thanks to @CGamesPlay)
-- Fixed addHelp default (should be true), if not set (thanks to @benblank)
-
-
-0.1.3 / 2012-06-27
-------------------
-
-- Fixed formatter api name: Formatter -> HelpFormatter
-
-
-0.1.2 / 2012-05-29
-------------------
-
-- Added basic tests
-- Removed excess whitespace in help
-- Fixed error reporting, when parcer with subcommands
-  called with empty arguments
-
-
-0.1.1 / 2012-05-23
-------------------
-
-- Fixed line wrapping in help formatter
-- Added better error reporting on invalid arguments
-
-
-0.1.0 / 2012-05-16
-------------------
-
-- First release.
+- Initial implementation, tests, readme [`7879629`](https://github.com/ljharb/call-bind-apply-helpers/commit/78796290f9b7430c9934d6f33d94ae9bc89fce04)
+- Initial commit [`3f1dc16`](https://github.com/ljharb/call-bind-apply-helpers/commit/3f1dc164afc43285631b114a5f9dd9137b2b952f)
+- npm init [`081df04`](https://github.com/ljharb/call-bind-apply-helpers/commit/081df048c312fcee400922026f6e97281200a603)
+- Only apps should have lockfiles [`5b9ca0f`](https://github.com/ljharb/call-bind-apply-helpers/commit/5b9ca0fe8101ebfaf309c549caac4e0a017ed930)
